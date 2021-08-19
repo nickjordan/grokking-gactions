@@ -23,25 +23,26 @@
 // Collection of Experiments and step-by-step implementation information
 === Experiments
 ==== Experiment 1. Install Operator Helm Chart 2.6.3 ( on Kind k8s 1.21)
-===== Create NS for Testing
+===== Implementation
+====== Create NS for Testing
 Create a namespace for the operator installation.
 [source, bash]
 ----
-kubectl create namespace evryfs-ga-runner-operator
+kubectl create ns evryfs-ga-runner-operator
 ----
-===== Install Helm Chart
-Install the helm chart into the newly created operator.
+====== Install Helm Chart
+* Install the helm chart into the newly created namespace.
 [source, bash]
 ----
 helm install github-actions-runner-operator evryfs-oss/github-actions-runner-operator --namespace ${title}
 ----
-===== Verify the CRD Status
+====== Verify the CRD Status
 [source, bash]
 ----
 kubectl get crd/githubactionrunners.garo.tietoevry.com -o yaml
 ----
 
-===== Verify the Operator Pod Event Sources and Controllers are operational
+====== Verify the Operator Pod Logs: Event Sources and Controller Watches are operational
 Verify the controllers start up successfully.
 1. controller-runtime.metrics
 2. controller-runtime.manager
@@ -55,10 +56,19 @@ kubectl logs github-actions-runner-operator-xxxx -f
 
 ==== Experiment 2. Configure GithubActionRunner CRD Instance to Single MVN Repository 
 
+===== Observations 
+* GH Runner Auto Update Issue - Runner Auto Update - https://github.com/actions/runner/issues/246
+* Security of DIND  - Samples Using (DIND) Docker in Docker, similar to older Gitlab CI implementations, security context privileged etc.
+* Ubuntu based Base Image - quay.io/evryfs/github-actions-runner:latest - base image uses ubuntu20, following GH ubuntu standards 
+
+===== Implementation
+====== Create Namespace for Actions Shared Runner Workloads
 [source, bash]
 ----
 kubectl create ns evryfs-ga-runner01
 ----
+
+====== Create GithubActionRunner CRD Instance
 
 [source, yaml]
 ----
@@ -171,11 +181,6 @@ spec:
           name: settings-xml
 ----
 
-===== Observations 
-* GH Runner Auto Update Issue - Runner Auto Update - https://github.com/actions/runner/issues/246
-* Security of DIND  - Samples Using (DIND) Docker in Docker, similar to older Gitlab CI implementations, security context privileged etc.
-* Ubuntu based Base Image - quay.io/evryfs/github-actions-runner:latest - base image uses ubuntu20, following GH ubuntu standards 
-
 
 // TODO ==== 3. WIP_Configure GH Token for Single Repository
 // // TODO - link on GH Token registration to use in above
@@ -190,3 +195,24 @@ spec:
 // * With Buildah https://catalog.redhat.com/software/containers/rhel8/buildah/5dca3d76dd19c71643b226d5 base image
 
 // TODO ==== Experiment 4. Install Operator Helm Chart 2.6.3 (on OCP 4.8.5)
+
+// TODO ==== Experiment 5. Test Operator resource consumption and performance with N runners and sample jobs (kind)
+
+// TODO ==== Experiment 6. Test Operator resource limits and performance with N runners and sample jobs (ocp)
+
+// TODO ==== Experiment 7. Test Ephemeral Runner use cases (pod per job, per repo) and autoscaling settings
+
+// TODO ==== Experiment 8. Test Runner Integrations with Hashicorp Vault (Agent Sidecar or InitContainer)
+// * https://learn.hashicorp.com/tutorials/vault/agent-kubernetes?in=vault/kubernetes
+
+// TODO ==== Experiment 9. Test Runner Integrations with Hashicorp Vault Offical Action
+// * https://github.com/hashicorp/vault-action
+
+// TODO ==== Experiment 10. Test Runner Build "time" Artifact Caching (e.g. MVN Packages) with Persistent Volumes
+// * https://learn.hashicorp.com/tutorials/vault/agent-kubernetes?in=vault/kubernetes
+
+// TODO ==== Experiment 11. Test Runner Job Artifact Output e.g. compiled JAR/Javascript Source and bulild time performance
+// * https://learn.hashicorp.com/tutorials/vault/agent-kubernetes?in=vault/kubernetes
+
+// TODO ==== Experiment 11. Test CRD Integration with COP NamespaceOperator
+// e.g. repo-cicd namespace repo-qa-cicd namespace strategies
