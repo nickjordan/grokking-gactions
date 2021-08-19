@@ -1,0 +1,28 @@
+# Github Actions Demos
+
+This repo is a collection of experiments and demos for using Github Actions and Github Action Runners with Kubernetes/Openshift clusters.
+
+## Prerequisites 
+1. Kubernetes/Openshift Lab Cluster 
+- Kind 
+- CRC
+- Red Hat Developer Sandbox 
+
+## Terms 
+Demos - Collection of experiments that combine user story like questions on github actions implementation. 
+Experiments - Stories that are attempting to perform given implementation, or test functionality under stated conditions. 
+
+## Installation 
+
+
+## Repository Structure 
+<!-- TODO Add Tree and Demos -->
+
+## Add an Experiment 
+<!-- TODO Add Notes on contributing demos/ experiments -->
+
+
+## Versioning
+
+## Contributing
+Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.

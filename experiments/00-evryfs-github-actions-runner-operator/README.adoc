@@ -1,0 +1,188 @@
+
+// Metadata:
+:story: As a CICD team member, I want to evaulate the Everyfs github actions runner operator in upstream k8s and Openshift.
+:title: Demo evryfs github-actions-runner-operator
+:epic: config
+:tags: infra, config, runner, nodejs, go, operator, cluster-admin
+:repo: "https://github.com/evryfs/g"
+:helm-chart: "evryfs-oss/github-actions-runner-operator" 
+:helm-chart-verseion: "2.6.3"
+
+== {title}
+=== Background 
+==== User Story
+{story}
+
+=== Prerequisites 
+* kind - v0.11.1 go1.16.4 darwin/amd64
+* helm - version.BuildInfo{Version:"v3.6.3", GitCommit:"d506314abfb5d21419df8c7e7e68012379db2354", GitTreeState:"dirty", GoVersion:"go1.16.6"}
+
+* Operator image - quay.io/evryfs/github-actions-runner-operator:v0.9.3
+* Helm Chart Version - 2.6.3 
+
+// Collection of Experiments and step-by-step implementation information
+=== Experiments
+==== Experiment 1. Install Operator Helm Chart 2.6.3 ( on Kind k8s 1.21)
+===== Create NS for Testing
+Create a namespace for the operator installation.
+[source, bash]
+----
+kubectl create namespace evryfs-ga-runner-operator
+----
+===== Install Helm Chart
+Install the helm chart into the newly created operator.
+[source, bash]
+----
+helm install github-actions-runner-operator evryfs-oss/github-actions-runner-operator --namespace ${title}
+----
+===== Verify the CRD Status
+[source, bash]
+----
+kubectl get crd/githubactionrunners.garo.tietoevry.com -o yaml
+----
+
+===== Verify the Operator Pod Event Sources and Controllers are operational
+Verify the controllers start up successfully.
+1. controller-runtime.metrics
+2. controller-runtime.manager
+3. controller-runtime.manager.controller.githubactionrunner
+
+[source, bash]
+----
+kubectl config set-context --current --namespace=evryfs-ga-runner-operator 
+kubectl logs github-actions-runner-operator-xxxx -f
+----
+
+==== Experiment 2. Configure GithubActionRunner CRD Instance to Single MVN Repository 
+
+[source, bash]
+----
+kubectl create ns evryfs-ga-runner01
+----
+
+[source, yaml]
+----
+apiVersion: garo.tietoevry.com/v1alpha1
+kind: GithubActionRunner
+metadata:
+  name: sample-no-idle-runner-pool
+  namespace: evryfs-ga-runner01
+spec:
+  # minimum running pods, required
+  minRunners: 0
+  # max number of pods, required
+  maxRunners: 3
+  # the github org, required
+  organization: username
+  # How often it will reconcile, optional, default 1m
+  reconciliationPeriod: 1m
+  # if runner for repo, optional
+  # repository: "theRepoName"
+  tokenRef:
+    key: GH_TOKEN
+    name: actions-runner
+  podTemplateSpec:
+    metadata:
+      annotations:
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchExpressions:
+                    - key: garo.tietoevry.com/pool
+                      operator: In
+                      values:
+                        - runner-pool
+      containers:
+        - name: runner
+          env:
+            - name: RUNNER_DEBUG
+              value: "true"
+            - name: DOCKER_TLS_CERTDIR
+              value: /certs
+            - name: DOCKER_HOST
+              value: tcp://localhost:2376
+            - name: DOCKER_TLS_VERIFY
+              value: "1"
+            - name: DOCKER_CERT_PATH
+              value: /certs/client
+            - name: GH_ORG
+              value: nickjordan
+          # if runner for repo:
+          # - name: GH_REPO
+          #   value: theRepoName
+          envFrom:
+            - secretRef:
+                name: runner-pool-regtoken
+          # find the fixed-in-time tags at https://quay.io/repository/evryfs/github-actions-runner?tab=tags if you want to avoid pulling on a moving tag
+          # due to https://github.com/actions/runner/issues/246 the runner sw needs to be recent
+          # you can subscribe to release-feeds at https://github.com/evryfs/github-actions-runner/releases.atom
+          image: quay.io/evryfs/github-actions-runner:latest
+          imagePullPolicy: Always
+          resources: {}
+          volumeMounts:
+            - mountPath: /certs
+              name: docker-certs
+            - mountPath: /home/runner/_diag
+              name: runner-diag
+            - mountPath: /home/runner/_work
+              name: runner-work
+            - mountPath: /home/runner/.m2
+              name: mvn-repo
+            - mountPath: /home/runner/.m2/settings.xml
+              name: settings-xml
+        - name: docker
+          env:
+            - name: DOCKER_TLS_CERTDIR
+              value: /certs
+          image: docker:stable-dind
+          imagePullPolicy: Always
+          args:
+            # See linked issues from: https://github.com/evryfs/github-actions-runner-operator/issues/39
+            - --mtu=1430
+          resources: {}
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - mountPath: /var/lib/docker
+              name: docker-storage
+            - mountPath: /certs
+              name: docker-certs
+            - mountPath: /home/runner/_work
+              name: runner-work
+      volumes:
+        - emptyDir: {}
+          name: runner-work
+        - emptyDir: {}
+          name: runner-diag
+        - emptyDir: {}
+          name: mvn-repo
+        - emptyDir: {}
+          name: docker-storage
+        - emptyDir: {}
+          name: docker-certs
+        - configMap:
+            defaultMode: 420
+            name: settings-xml
+          name: settings-xml
+----
+
+==== 3. WIP_Configure GH Token for Single Repository
+// TODO - link on GH Token registration to use in above
+
+
+==== 4. WIP_Configure Sample MVN/Petclinic Repo 
+// Samples are designed around mvn based projects, deploy: https://github.com/redhat-developer-demos/spring-petclinic to test mvn build. 
+
+
+==== WIP_Experiment 3. Configure GithubActionRunner/Operator to use Buildah instead of DIND
+* https://github.com/redhat-actions/buildah-build
+* With Buildah https://catalog.redhat.com/software/containers/rhel8/buildah/5dca3d76dd19c71643b226d5 base image
+## Notes 
+* GH Runner Auto Update Issue - Runner Auto Update - https://github.com/actions/runner/issues/246
+* DIND - Samples Using (DIND) Docker in Docker, similar to older Gitlab CI implementations, security context privileged etc.
+* Base Image - quay.io/evryfs/github-actions-runner:latest - base image uses ubuntu20, following GH ubuntu standards 
