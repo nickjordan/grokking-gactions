@@ -171,18 +171,22 @@ spec:
           name: settings-xml
 ----
 
-==== 3. WIP_Configure GH Token for Single Repository
-// TODO - link on GH Token registration to use in above
-
-
-==== 4. WIP_Configure Sample MVN/Petclinic Repo 
-// Samples are designed around mvn based projects, deploy: https://github.com/redhat-developer-demos/spring-petclinic to test mvn build. 
-
-
-==== WIP_Experiment 3. Configure GithubActionRunner/Operator to use Buildah instead of DIND
-* https://github.com/redhat-actions/buildah-build
-* With Buildah https://catalog.redhat.com/software/containers/rhel8/buildah/5dca3d76dd19c71643b226d5 base image
-## Notes 
+===== Observations 
 * GH Runner Auto Update Issue - Runner Auto Update - https://github.com/actions/runner/issues/246
-* DIND - Samples Using (DIND) Docker in Docker, similar to older Gitlab CI implementations, security context privileged etc.
-* Base Image - quay.io/evryfs/github-actions-runner:latest - base image uses ubuntu20, following GH ubuntu standards 
+* Security of DIND  - Samples Using (DIND) Docker in Docker, similar to older Gitlab CI implementations, security context privileged etc.
+* Ubuntu based Base Image - quay.io/evryfs/github-actions-runner:latest - base image uses ubuntu20, following GH ubuntu standards 
+
+
+// TODO ==== 3. WIP_Configure GH Token for Single Repository
+// // TODO - link on GH Token registration to use in above
+
+
+// TODO ==== 4. WIP_Configure Sample MVN/Petclinic Repo 
+// // Samples are designed around mvn based projects, deploy: https://github.com/redhat-developer-demos/spring-petclinic to test mvn build. 
+
+
+// TODO ==== Experiment 3. Configure GithubActionRunner/Operator to use Buildah instead of DIND on Kind 
+// * https://github.com/redhat-actions/buildah-build
+// * With Buildah https://catalog.redhat.com/software/containers/rhel8/buildah/5dca3d76dd19c71643b226d5 base image
+
+// TODO ==== Experiment 4. Install Operator Helm Chart 2.6.3 (on OCP 4.8.5)
