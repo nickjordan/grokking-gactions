@@ -1,0 +1,25 @@
+apiVersion: actions.summerwind.dev/v1alpha1
+kind: RunnerDeployment
+metadata:
+  name: org-as-runnerdeploy
+spec:
+  template:
+    spec:
+      organization: nicks-world
+      env: []
+      dockerEnabled: false
+---
+apiVersion: actions.summerwind.dev/v1alpha1
+kind: HorizontalRunnerAutoscaler
+metadata:
+  name: org-as-runnerdeploy-autoscaler
+spec:
+  scaleTargetRef:
+    name: org-as-runnerdeploy
+  scaleDownDelaySecondsAfterScaleOut: 60
+  minReplicas: 0
+  maxReplicas: 3
+  metrics:
+  - type: TotalNumberOfQueuedAndInProgressWorkflowRuns
+    repositoryNames:
+    - nicks-world/sample-repo

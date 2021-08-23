@@ -1,0 +1,161 @@
+
+// Metadata:
+:story: As a CICD team member, I want to evaulate the Actions Runner Controller operator in Openshift.
+:title: Demo Actions Runner Controller Operator
+:epic: config
+:tags: infra, config, runner, go, operator, cluster-admin
+:repo: "https://github.com/actions-runner-controller/actions-runner-controller
+:helm-chart: "https://actions-runner-controller.github.io/actions-runner-controller" 
+:helm-chart-verseion: "2.6.3"
+
+== {title}
+=== Background 
+==== User Story
+{story}
+
+=== Prerequisites 
+* Openshfit Client Version: 4.6.16                                                             
+* Openshift Server Version: 4.8.5
+* Kubernetes Version: v1.21.1+9807387                                                
+
+
+// Collection of Experiments and step-by-step implementation information
+=== Experiments
+==== Experiment 1. Install Operator Helm Chart 2.6.3 ( on Kind k8s 1.21)
+===== Implementation
+====== 1. Install Cert Manager (from Community Operators CatalogSource)
+* The operator makes use of CertManager for PKI generation, along with a MutatingAdmissionController. 
+* Install CertManager and verify using version .15.3 for Kubernetes 1.21 (4.85), and create a cert-manager instance. 
+// ADDREF https://github.com/actions-runner-controller/actions-runner-controller#installation 
+// ADDREF 
+
+
+[source,yaml]
+----
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  labels:
+    operators.coreos.com/cert-manager-operator.openshift-operators: ''
+  name: cert-manager-operator
+  namespace: openshift-operators
+spec:
+  channel: stable
+  installPlanApproval: Automatic
+  name: cert-manager-operator
+  source: certified-operators
+  sourceNamespace: openshift-marketplace
+  startingCSV: cert-manager-operator.v0.15.3
+----
+
+* Apply the manifests directly. 
+
+[source,bash]
+----
+oc apply -rF ./manifests/01-cert-manager
+----
+
+====== 2. Install Github Actions Controller Operator 
+* Install CertManager and verify using version .15.3 for Kubernetes 1.21 (4.85), and create a cert-manager instance. 
+* Apply the manifests directly. 
+
+[source,bash]
+----
+oc apply -rF ./manifests/01-actions-runner-controller
+----
+
+====== 3. Create Github App "runneroperator" in Github Organization 
+// TODO add document screenshot with privs for Actions, Repository, Administration. 
+* Within your Github Organization, create a Github App with Actions, Repository, and Runner privileges. 
+
+===== 4. Create Kubernetes Secret with (Installed) Github Application Credentials 
+* Once the "runneroperator" Github Application is installed, we can proceed by setting up the Kubernetes Secret for Github App authorization.
+* Then verify controller manager startup Startup
+
+[source,bash]
+----
+APP_ID=XXXXX
+INSTALLATION_ID=XXXXX
+PRIVATE_KEY_FILE_PATH=./secrets/appname.timestamp.private-key.pem 
+
+oc create secret generic controller-manager \
+    -n actions-runner-system \
+    --from-literal=github_app_id=${APP_ID} \
+    --from-literal=github_app_installation_id=${INSTALLATION_ID} \
+    --from-file=github_app_private_key=${PRIVATE_KEY_FILE_PATH}
+----
+
+===== 5. Update Service Account SCC (for upstream Demo)
+* Upstream demo uses containers and DIND, Docker in Docker, that require upstream privileges. While we won't use DIND for future experiments, you can ensure the controller manager and runner pods startup by applying the SCC. 
+
+[source,bash]
+----
+oc adm policy add-scc-to-user privileged -z default --as system:admin
+----
+* Verify Controller Startup 
+[source,bash]
+----
+2021-08-23T17:17:48.907Z        INFO    controller-runtime.controller   Starting EventSource    {"controller": "runnerdeployment-controller", "source": "kind source: /, Kind="}
+2021-08-23T17:17:48.907Z        INFO    controller-runtime.certwatcher  Starting certificate watcher
+2021-08-23T17:17:48.908Z        INFO    controller-runtime.webhook      serving webhook server  {"host": "", "port": 9443}
+2021-08-23T17:17:49.108Z        INFO    controller-runtime.controller   Starting Controller     {"controller": "horizontalrunnerautoscaler-controller"}
+2021-08-23T17:17:49.108Z        INFO    controller-runtime.controller   Starting EventSource    {"controller": "runnerdeployment-controller", "source": "kind source: /, Kind="}
+2021-08-23T17:17:49.108Z        INFO    controller-runtime.controller   Starting Controller     {"controller": "runnerdeployment-controller"}
+2021-08-23T17:17:49.208Z        INFO    controller-runtime.controller   Starting EventSource    {"controller": "runner-controller", "source": "kind source: /, Kind="}
+2021-08-23T17:17:49.208Z        INFO    controller-runtime.controller   Starting Controller     {"controller": "runnerreplicaset-controller"}
+2021-08-23T17:17:49.208Z        INFO    controller-runtime.controller   Starting workers        {"controller": "horizontalrunnerautoscaler-controller", "worker count": 1}
+2021-08-23T17:17:49.208Z        INFO    controller-runtime.controller   Starting workers        {"controller": "runnerdeployment-controller", "worker count": 1}
+2021-08-23T17:17:49.308Z        INFO    controller-runtime.controller   Starting workers        {"controller": "runnerreplicaset-controller", "worker count": 1}
+2021-08-23T17:17:50.609Z        INFO    controller-runtime.controller   Starting Controller     {"controller": "runner-controller"}
+2021-08-23T17:17:50.709Z        INFO    controller-runtime.controller   Starting workers        {"controller": "runner-controller", "worker count": 1}
+----
+
+
+===== 6. Deploy Sample "Standalone" Runner backed by a single repository 
+* Create a Namespace for standalone runner testing
+* Deploy a "Runner" that's owned by our Github Organization
+* Create a standalone single-pod runner in the application Namespace  
+
+[source,bash]
+----
+oc apply -rF ./manifests/02-repo-runner
+----
+
+===== 6. Deploy Organization Wide Runner in a "cicd" namesapce
+* Create a Namespace for cicd standalone runner
+* Deploy a "Runner" that's owned by our Github Organization
+
+[source,bash]
+----
+oc apply -rF ./manifests/03-org-runner
+----
+
+===== 7. WIP Deploy Runner with Autoscaling for Repo
+* Deploy a "Runner" that's owned by our repo with autoscaling enabled
+* Using 
+====== Observations: 
+* Notes: WIP Deploy works, but autoscaling min: 0 not responding. 
+[source,bash]
+----
+oc apply -rF ./manifests/04-runner-deployment-autoscale
+----
+
+===== 8. WIP Deploy Runner with Autoscaling for Org
+* Deploy a "Runner" that's available to the entire Github Organization with autoscaling enabled. 
+====== Observations: 
+* Notes: WIP Deploy works, but autoscaling min: 0 not responding. Still takes min:0 even if recommendations is 0. Log Output from Controller:
+[source,text]
+----
+cas_desired_before": 1, "replicas_desired": 0, "num_runners": 1, "num_runners_registered": 1, "num_runners_busy": 0, "namespace": "actions-runner-system", "runner_deployment": "repo-runnerdeploy", "horizontal_runner_autoscaler": "repo-runnerdeploy-autoscaler", "enterprise": "", "organization": "nicks-world", "repository": ""}
+2021-08-23T20:48:11.917Z        DEBUG   actions-runner-controller.horizontalrunnerautoscaler    Calculated desired replicas of 1        {"horizontalrunnerautoscaler": "actions-runner-system/repo-runnerdeploy-autoscaler", "suggested": 0, "reserved": 0, "min": 1, "max": 3}
+2021-08-23T20:48:11.929Z        DEBUG   controller-runtime.controller   Successfully Reconciled {"controller": "horizontalrunnerautoscaler-controller", "request": "actions-runner-system/repo-runnerdeploy-autoscaler"}
+2021-08-23T20:48:11.929Z        DEBUG   actions-runner-controller.horizontalrunnerautoscaler    Calculated desired replicas of 1        {"horizontalrunnerautoscaler": "actions-runner-system/repo-runnerdeploy-autoscaler", "suggested": 0, "reserved": 0, "min": 1, "cached": 0, "max": 3}
+2021-08-23T20:48:11.929Z        DEBUG   controller-runtime.controller   Successfully Reconciled {"controller": "horizontalrunnerautoscaler-controller", "request": "actions-runner-system/repo-runnerdeploy-autoscaler"}
+----
+
+* Apply the manifests
+
+[source,bash]
+----
+oc apply -rF ./manifests/05-runner-deployment-autoscale-org
+----
